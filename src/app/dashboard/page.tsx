@@ -2,13 +2,35 @@
  
 import { useCallback, useEffect, useMemo, useState } from "react"; 
 import clsx from "clsx";
-import { ShieldCheck, Settings, Save, X, Copy, LogOut } from "lucide-react";
+import { 
+  Search, 
+  Library, 
+  Boxes, 
+  Cpu, 
+  Globe, 
+  LogOut, 
+  ChevronRight, 
+  Plus, 
+  MessageSquare, 
+  Layers, 
+  Settings,
+  X,
+  Copy,
+  Zap,
+  History,
+  Sparkles,
+  CheckCircle2,
+  TrendingUp,
+  Clock,
+  Star
+} from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser"; 
 import { useRouter } from "next/navigation"; 
 import { useI18n } from "@/components/I18nProvider";
 import { ApiSettings } from "@/components/ApiSettings";
 import { useTranscription } from "@/hooks/useTranscription";
 import { CacheService } from "@/services/CacheService";
+import SystemUtilities from "@/components/SignOutButton";
 
 export default function DashboardPage() { 
   const { t, locale, setLocale } = useI18n();
@@ -28,6 +50,8 @@ export default function DashboardPage() {
 
   // UI States
   const [showSettings, setShowSettings] = useState(false);
+  const [activeTab, setActiveTab] = useState("Khai Phá");
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
   useEffect(() => { 
     const checkSession = async () => { 
@@ -41,6 +65,18 @@ export default function DashboardPage() {
     checkSession(); 
   }, [router, supabase]); 
 
+  // Xử lý phím tắt Ctrl + I cho Hội thoại mới
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+        e.preventDefault();
+        handleNewConversation();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const { runTranscription } = useTranscription();
 
   const handleCopy = (text: string) => {
@@ -49,38 +85,14 @@ export default function DashboardPage() {
     alert("Đã sao chép vào bộ nhớ tạm, Hùng Đại!");
   };
 
-  const handleManualProcess = useCallback(async () => {
-    if (!transcription.trim()) return;
-    setIsProcessing(true);
-    setProcessingStatus("Đang chuyển hóa tri thức...");
-    setInlineError(null);
+  const handleNewConversation = () => {
+    setYoutubeUrl("");
+    setTranscription("");
     setSummary(null);
     setGates(null);
-
-    try {
-      const res = await fetch('/api/transform', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          rawText: transcription, 
-          selectedGates: ['Viral', 'Minh Triết', 'Nghệ Thuật', 'Tiến Hóa'] 
-        })
-      });
-      const data = await res.json();
-      if (data.summary) {
-        setSummary(data.summary);
-        setGates(data.gates);
-        console.log("✅ Chuyển hóa thủ công thành công!");
-      } else {
-        setInlineError(data.error || "Không thể chuyển hóa văn bản.");
-      }
-    } catch (error) {
-      console.error("Lỗi chuyển hóa thủ công:", error);
-      setInlineError("Lỗi kết nối mạch dẫn ASI.");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [transcription]);
+    setInlineError(null);
+    console.log("Hội thoại mới đã được thiết lập.");
+  };
 
   const handleProcessVideo = useCallback(async () => {
     const input = youtubeUrl.trim();
@@ -91,12 +103,9 @@ export default function DashboardPage() {
 
     setIsProcessing(true);
     setInlineError(null);
-    setTranscription("");
-    setSummary(null);
-    setGates(null);
 
     try {
-      // BƯỚC 1: Hỏi "Thủ thư" xem đã từng bóc tách video này chưa
+      setProcessingStatus("Đang truy lục Ký ức...");
       const cachedData = CacheService.get(input);
       if (cachedData) {
         console.log("[LOG] Ý Lâm: Đã tìm thấy tri thức trong Ký ức.");
@@ -111,11 +120,11 @@ export default function DashboardPage() {
       const data = await runTranscription(input);
       
       if (data.success) {
+        setProcessingStatus("Đang kết tinh tri thức...");
         setTranscription(data.text || data.transcription || "");
         setSummary(data.summary || null);
         setGates(data.gates || null);
         
-        // BƯỚC 3: Lưu ngay vào Ký ức
         CacheService.save(input, {
           summary: data.summary || null,
           scripts: data.gates || null,
@@ -134,182 +143,301 @@ export default function DashboardPage() {
     }
   }, [youtubeUrl, runTranscription]);
 
-  const handleSignOut = async () => { 
-    await supabase.auth.signOut(); 
-    router.push("/onboarding"); 
-  }; 
- 
   if (!userEmail) { 
     return ( 
-      <div className="min-h-screen bg-black flex items-center justify-center"> 
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center"> 
         <p className="text-zinc-500 animate-pulse uppercase tracking-[0.3em] text-xs">Đang đồng bộ tư duy...</p> 
       </div> 
     ); 
   } 
  
   return ( 
-    <div className="min-h-screen bg-black text-zinc-300 font-sans selection:bg-white selection:text-black"> 
-      <div className="mx-auto max-w-4xl px-6 py-12 sm:py-20"> 
+    <div className="flex h-screen bg-[#050505] text-zinc-400 font-sans selection:bg-white selection:text-black overflow-hidden"> 
+      
+      {/* --- CỘT TRÁI: CĂN CỨ ĐỊA (SIDEBAR) --- */} 
+      <aside className={clsx(
+        "border-r border-zinc-900 p-4 transition-all bg-[#080808] flex flex-col relative z-20",
+        isSidebarExpanded ? "w-64" : "w-20"
+      )}> 
+        <div 
+          onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+          className="w-6 h-6 bg-zinc-200 rounded-sm mb-10 cursor-pointer hover:bg-white transition-all mx-auto lg:mx-0 shadow-lg active:scale-95" 
+        /> 
         
-        {/* HEADER: TRẠM CHỈ HUY */}
-        <header className="bg-[#111] border border-zinc-800 p-8 rounded-3xl text-center shadow-2xl mb-12 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-b from-zinc-800/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          <h1 className="text-3xl font-black text-white mb-2 tracking-[0.2em] uppercase">Trạm Chỉ Huy Ý Lâm</h1> 
-          <p className="text-zinc-500 text-xs tracking-widest mb-6">
-            Hệ thống nhận diện: <span className="text-zinc-300 font-mono">{userEmail}</span> 
-          </p> 
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"> 
-            <div className="p-4 border border-zinc-800/50 rounded-xl bg-black/50 flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Trạng thái lõi</span>
-              <span className="text-green-500 font-mono text-xs">AN ĐỊNH</span>
-            </div>
-            <div className="p-4 border border-zinc-800/50 rounded-xl bg-black/50 flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Mạch Supabase</span>
-              <span className="text-green-500 font-mono text-xs">KẾT NỐI</span>
-            </div>
-            <div className="p-4 border border-zinc-800/50 rounded-xl bg-black/50 flex flex-col items-center">
-              <span className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Trí tuệ Gemini</span>
-              <span className="text-yellow-500 font-mono text-xs">CHỜ LỆNH</span>
-            </div>
-          </div> 
+        <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar"> 
+          <NavItem 
+            icon={<Search size={20} />} 
+            label="Khai Phá" 
+            active={activeTab === "Khai Phá"} 
+            expanded={isSidebarExpanded}
+            onClick={() => setActiveTab("Khai Phá")}
+          /> 
+          <NavItem 
+            icon={<Library size={20} />} 
+            label="Tâm Pháp" 
+            active={activeTab === "Thư Viện"}
+            expanded={isSidebarExpanded}
+            onClick={() => setActiveTab("Thư Viện")}
+          /> 
+          <NavItem 
+            icon={<Boxes size={20} />} 
+            label="Mạch Dẫn" 
+            active={activeTab === "Mạch Dẫn"}
+            expanded={isSidebarExpanded}
+            onClick={() => setActiveTab("Mạch Dẫn")}
+          /> 
+          <NavItem 
+            icon={<Cpu size={20} />} 
+            label="Chỉ Huy" 
+            active={activeTab === "Trạm Chỉ Huy"}
+            expanded={isSidebarExpanded}
+            onClick={() => setActiveTab("Trạm Chỉ Huy")}
+          /> 
+        </nav> 
 
-          <div className="flex justify-center gap-4">
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-200 transition-colors"
-            >
-              <Settings size={14} />
-              {showSettings ? "Đóng thiết lập" : "Thiết lập API"}
-            </button>
-            <button 
-              onClick={handleSignOut} 
-              className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-red-900/50 hover:text-red-500 transition-colors"
-            >
-              <LogOut size={14} />
-              Ngắt kết nối
-            </button> 
-          </div>
-        </header>
+        <div className="pt-4 border-t border-zinc-900"> 
+           <SystemUtilities minimal={!isSidebarExpanded} />
+        </div> 
+      </aside> 
 
-        {/* API Settings Panel */}
+      {/* --- CỘT GIỮA: TRUNG TÂM ĐIỀU HÀNH --- */} 
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-[#020202]"> 
+        
+        {/* API Settings Panel (Overlay) */}
         {showSettings && (
-          <div className="mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
-            <ApiSettings />
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="w-full max-w-2xl relative">
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="absolute -top-12 right-0 p-2 text-zinc-500 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+              <ApiSettings />
+            </div>
           </div>
         )}
 
-        {/* INPUT: KHAI PHÓNG TRI THỨC */}
-        <div className="relative mb-16"> 
-          <div className="yl-card p-1 rounded-2xl bg-gradient-to-r from-zinc-800 to-zinc-900 shadow-2xl">
-            <input 
-              value={youtubeUrl} 
-              onChange={(e) => setYoutubeUrl(e.target.value)} 
-              placeholder="Dán link YouTube tại đây..." 
-              className={clsx(
-                "w-full rounded-xl bg-black px-6 py-5 text-lg text-white focus:outline-none transition-all placeholder:text-zinc-700",
-                isProcessing && "opacity-50 cursor-not-allowed"
-              )} 
-            /> 
-          </div>
-          {inlineError && ( 
-            <p className="mt-4 text-red-500 text-xs font-bold text-center animate-pulse uppercase tracking-widest">{inlineError}</p> 
-          )} 
+        {/* Scrollable Area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10 p-8">
           
-          <button 
-            onClick={handleProcessVideo} 
-            disabled={isProcessing || !youtubeUrl} 
-            className="mt-8 w-full py-5 rounded-xl border border-zinc-800 bg-white text-black font-black uppercase tracking-[0.4em] text-sm hover:bg-zinc-200 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-30 shadow-[0_0_40px_rgba(255,255,255,0.1)]" 
-          > 
-            {isProcessing ? processingStatus : "Khai Phóng Tri Thức"} 
-          </button>
+          {/* TAB 1: KHAI PHÁ (HOME) */} 
+          {activeTab === 'Khai Phá' && (
+            <div className="mx-auto max-w-3xl w-full flex flex-col items-center justify-center min-h-full py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              
+              <div className="w-full space-y-12">
+                <h1 className="text-4xl font-light tracking-[0.2em] text-center text-white uppercase">
+                  Ý LÂM <span className="font-bold text-zinc-500">SYSTEM</span>
+                </h1> 
 
-          {/* Cổng phụ: Dán văn bản thủ công */} 
-          <div className="mt-8 border-t border-zinc-900 pt-8"> 
-            <details className="group"> 
-              <summary className="text-zinc-600 cursor-pointer hover:text-zinc-400 text-[10px] uppercase tracking-[0.3em] transition-colors list-none flex items-center justify-center gap-3"> 
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-900 group-open:bg-amber-500 transition-colors" />
-                Cổng phụ: Dán văn bản thủ công
-              </summary> 
-              <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
-                <textarea 
-                  className="w-full p-5 bg-[#050505] border border-zinc-900 rounded-xl text-zinc-500 text-sm h-48 focus:outline-none focus:border-amber-900/30 transition-all placeholder:text-zinc-800 font-serif italic" 
-                  placeholder="Dán phụ đề copy từ YouTube vào đây..." 
-                  value={transcription}
-                  onChange={(e) => setTranscription(e.target.value)} 
-                /> 
-                <button
-                  onClick={handleManualProcess}
-                  disabled={isProcessing || !transcription.trim()}
-                  className="w-full py-4 rounded-lg border border-amber-900/20 bg-amber-950/5 text-amber-700 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-amber-950/10 hover:text-amber-500 transition-all disabled:opacity-20"
-                >
-                  {isProcessing ? "Đang chuyển hóa..." : "Kích hoạt Chuyển di Tri thức"}
-                </button>
-              </div>
-            </details> 
-          </div>
-        </div> 
+                <div className="bg-[#080808] border border-zinc-900 rounded-2xl p-5 focus-within:border-zinc-700 transition-all shadow-2xl"> 
+                  <textarea 
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    className="w-full bg-transparent outline-none text-zinc-200 h-32 resize-none text-lg placeholder-zinc-800" 
+                    placeholder="Hùng Đại muốn khai phá điều gì?" 
+                  /> 
+                  {inlineError && (
+                    <p className="px-2 pb-2 text-red-500 text-[10px] font-bold animate-pulse uppercase tracking-widest">{inlineError}</p>
+                  )}
+                  <div className="flex justify-between items-center pt-4 border-t border-zinc-900">
+                    <div className="flex gap-4">
+                      <Plus 
+                        size={20} 
+                        className="text-zinc-600 hover:text-white cursor-pointer transition-colors" 
+                      />
+                      <Settings 
+                        size={20} 
+                        onClick={() => setShowSettings(!showSettings)}
+                        className={clsx(
+                          "cursor-pointer transition-colors",
+                          showSettings ? "text-white" : "text-zinc-600 hover:text-white"
+                        )}
+                      />
+                    </div>
+                    <button 
+                      onClick={handleProcessVideo}
+                      disabled={isProcessing || !youtubeUrl}
+                      className="px-8 py-2 bg-zinc-100 text-black font-bold rounded-full text-[10px] uppercase tracking-widest hover:bg-white active:scale-95 disabled:opacity-30 transition-all flex items-center gap-2"
+                    > 
+                      {isProcessing ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                          <span>{processingStatus}</span>
+                        </>
+                      ) : (
+                        "Khai Phóng"
+                      )}
+                    </button> 
+                  </div> 
+                </div> 
 
-        {/* RESULTS: HỆ SINH THÁI TRI THỨC */}
-        <div className="space-y-12">
-          {/* Tầng 1: TỔNG KẾT */}
-          {summary && (
-            <div className="yl-card border border-zinc-800 bg-[#0a0a0a] rounded-3xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
-              <div className="p-6 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/20">
-                <h2 className="text-[10px] font-black tracking-[0.3em] uppercase text-zinc-500">Tóm lược hạt nhân</h2>
-                <button onClick={() => handleCopy(`${summary.core_essence}\n\nGiá trị: ${summary.practical_value}`)} className="text-zinc-600 hover:text-white transition-colors">
-                  <Copy size={14} />
-                </button>
-              </div>
-              <div className="p-10 space-y-6">
-                <p className="text-zinc-100 leading-relaxed font-serif text-2xl italic text-center">"{summary.core_essence}"</p>
-                <div className="pt-8 border-t border-zinc-900">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-600 block mb-3 text-center">Giá trị thực tiễn</span>
-                  <p className="text-zinc-400 text-sm leading-relaxed text-center px-4">{summary.practical_value}</p>
+                {/* Task Cards: Chỉ hiện khi chưa có kết quả */} 
+                {(!summary && !transcription) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300"> 
+                    <div className="p-4 bg-zinc-900/30 border border-zinc-900 rounded-xl hover:border-zinc-700 cursor-pointer group transition-all">
+                      <Zap size={14} className="mb-2 text-zinc-500 group-hover:text-amber-500 transition-colors" />
+                      <p className="text-[10px] font-bold uppercase text-zinc-300">Nhạc Ballad</p>
+                    </div> 
+                    <div className="p-4 bg-zinc-900/30 border border-zinc-900 rounded-xl hover:border-zinc-700 cursor-pointer group transition-all">
+                      <Cpu size={14} className="mb-2 text-zinc-500 group-hover:text-blue-500 transition-colors" />
+                      <p className="text-[10px] font-bold uppercase text-zinc-300">Mạch VITA</p>
+                    </div> 
+                  </div> 
+                )}
+
+                {/* RESULTS AREA */}
+                <div className="w-full mt-12 space-y-12 pb-20">
+                  {/* Tầng 1: TỔNG KẾT */}
+                  {summary && (
+                    <div className="yl-card border border-zinc-900 bg-[#080808] rounded-3xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                      <div className="p-6 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/10">
+                        <h2 className="text-[10px] font-black tracking-[0.3em] uppercase text-zinc-600">Tóm lược hạt nhân</h2>
+                        <button onClick={() => handleCopy(`${summary.core_essence}\n\nGiá trị: ${summary.practical_value}`)} className="text-zinc-700 hover:text-white transition-colors">
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                      <div className="p-10 space-y-6">
+                        <p className="text-zinc-100 leading-relaxed font-serif text-2xl italic text-center">"{summary.core_essence}"</p>
+                        <div className="pt-8 border-t border-zinc-900">
+                          <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-700 block mb-3 text-center">Giá trị thực tiễn</span>
+                          <p className="text-zinc-500 text-sm leading-relaxed text-center px-4">{summary.practical_value}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tầng 2: CÁC CÁNH CỔNG (GATES) */}
+                  {gates && (
+                    <div className="grid grid-cols-1 gap-8">
+                      {Object.entries(gates).map(([key, gate]: [string, any]) => gate.active && (
+                        <div key={key} className="yl-card border border-zinc-900 bg-[#050505] rounded-3xl overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+                          <div className="p-5 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/5">
+                            <h3 className="text-[9px] font-black tracking-[0.3em] uppercase text-zinc-600">{gate.title}</h3>
+                            <button onClick={() => handleCopy(JSON.stringify(gate.content, null, 2))} className="text-zinc-700 hover:text-white transition-colors">
+                              <Copy size={14} />
+                            </button>
+                          </div>
+                          <div className="p-8">
+                            <pre className="text-zinc-600 text-xs font-mono whitespace-pre-wrap leading-loose">
+                              {JSON.stringify(gate.content, null, 2)}
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tầng 3: DỮ LIỆU GỐC */}
+                  {transcription && (
+                    <div className="yl-card border border-zinc-900 bg-black rounded-3xl overflow-hidden shadow-lg animate-in fade-in duration-1000 delay-500">
+                      <div className="p-6 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/5">
+                        <h2 className="text-[9px] font-black tracking-[0.3em] uppercase text-zinc-800">Mạch dẫn gốc (Raw)</h2>
+                        <button onClick={() => handleCopy(transcription)} className="text-zinc-900 hover:text-zinc-500 transition-colors">
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                      <div className="p-10">
+                        <p className="text-zinc-700 text-xs leading-relaxed font-serif line-clamp-[10] hover:line-clamp-none transition-all cursor-pointer">
+                          {transcription}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Tầng 2: CÁC CÁNH CỔNG (GATES) */}
-          {gates && (
-            <div className="grid grid-cols-1 gap-8">
-              {Object.entries(gates).map(([key, gate]: [string, any]) => gate.active && (
-                <div key={key} className="yl-card border border-zinc-800 bg-[#080808] rounded-3xl overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-                  <div className="p-5 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/10">
-                    <h3 className="text-[9px] font-black tracking-[0.3em] uppercase text-zinc-500">{gate.title}</h3>
-                    <button onClick={() => handleCopy(JSON.stringify(gate.content, null, 2))} className="text-zinc-600 hover:text-white transition-colors">
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <div className="p-8">
-                    <pre className="text-zinc-500 text-xs font-mono whitespace-pre-wrap leading-loose">
-                      {JSON.stringify(gate.content, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* TAB 2: MẠCH DẪN (CONNECTORS) */} 
+          {activeTab === 'Mạch Dẫn' && ( 
+            <div className="mx-auto max-w-4xl w-full py-12 animate-in fade-in duration-500">
+              <div className="mb-8"> 
+                <h2 className="text-2xl font-bold text-white mb-2 uppercase tracking-tight">Mạch Dẫn Hệ Thống</h2> 
+                <p className="text-zinc-500 text-sm italic">Kết nối và cập nhật các API then chốt của Đế chế.</p> 
+              </div> 
+              <ConnectorsTab />
+            </div> 
+          )} 
 
-          {/* Tầng 3: DỮ LIỆU GỐC */}
-          {transcription && (
-            <div className="yl-card border border-zinc-900 bg-black rounded-3xl overflow-hidden shadow-lg animate-in fade-in duration-1000 delay-500">
-              <div className="p-6 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/5">
-                <h2 className="text-[9px] font-black tracking-[0.3em] uppercase text-zinc-700">Mạch dẫn gốc (Raw)</h2>
-                <button onClick={() => handleCopy(transcription)} className="text-zinc-800 hover:text-zinc-400 transition-colors">
-                  <Copy size={14} />
-                </button>
-              </div>
-              <div className="p-10">
-                <p className="text-zinc-600 text-xs leading-relaxed font-serif line-clamp-[10] hover:line-clamp-none transition-all cursor-pointer">
-                  {transcription}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
-      </div> 
+
+        {/* Footer tinh tế */} 
+        <footer className="py-4 text-center text-zinc-700 text-[10px] uppercase tracking-[0.3em] bg-black/50 backdrop-blur-md border-t border-zinc-900/50"> 
+          Powered by Tự Minh (Lucian) IQ 1000 • Đế chế Đại Minh 
+        </footer> 
+      </main> 
+
+      {/* --- CỘT PHẢI: NHÃN QUAN DISCOVER --- */} 
+      <aside className="w-72 hidden xl:flex flex-col border-l border-zinc-900 p-6 bg-[#050505] overflow-y-auto custom-scrollbar relative z-20"> 
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-8 text-zinc-500">Khám Phá Mới</p> 
+        <div className="space-y-6"> 
+          <DiscoverItem category="Dữ liệu" title="Cập nhật tiến hóa Ý Lâm v3.0" />
+          <DiscoverItem category="Mạch dẫn" title="Kết nối Supabase & Vercel" />
+          <DiscoverItem category="Nghiên cứu" title="Cấu trúc trường thọ VitaDAO 2026" />
+        </div> 
+      </aside> 
     </div> 
   ); 
+} 
+ 
+// Sub-components 
+function NavItem({ 
+  icon, 
+  label, 
+  active = false, 
+  expanded = true,
+  onClick 
+}: { 
+  icon: React.ReactNode, 
+  label: string, 
+  active?: boolean,
+  expanded?: boolean,
+  onClick?: () => void
+}) { 
+  return ( 
+    <div 
+      onClick={onClick}
+      className={clsx(
+        "flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all",
+        active ? "bg-zinc-900 text-white" : "hover:bg-zinc-900/50 hover:text-zinc-200"
+      )}
+    > 
+      {icon} 
+      {expanded && <span className="text-[11px] font-bold uppercase tracking-tight">{label}</span>} 
+    </div> 
+  ); 
+} 
+
+const ConnectorsTab = () => { 
+  const apis = ['Supabase', 'Vercel', 'Midjourney', 'Suno/Lyria']; 
+  return ( 
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full animate-in fade-in"> 
+      {apis.map(name => ( 
+        <div key={name} className="p-6 bg-[#080808] rounded-2xl border border-zinc-900 hover:border-zinc-700 transition-all group shadow-xl"> 
+          <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Boxes size={16} className="text-amber-500" />
+            {name}
+          </h3> 
+          <input 
+            type="password" 
+            placeholder="Nhập API Key..." 
+            className="w-full p-3 bg-black rounded-xl border border-zinc-900 text-xs text-zinc-300 outline-none focus:border-amber-500 mb-4 transition-all" 
+          /> 
+          <button className="w-full py-2.5 bg-zinc-900 text-[10px] font-black text-zinc-500 hover:text-white hover:bg-amber-600 rounded-xl transition-all uppercase tracking-widest"> 
+            Cập Nhật Mạch Dẫn 
+          </button> 
+        </div> 
+      ))} 
+    </div> 
+  ); 
+};
+
+function DiscoverItem({ category, title }: { category: string, title: string }) {
+  return (
+    <div className="group cursor-pointer">
+      <p className="text-[9px] text-zinc-600 font-bold mb-1 uppercase tracking-wider">{category}</p>
+      <h4 className="text-xs group-hover:text-white transition-colors leading-relaxed">{title}</h4>
+    </div>
+  );
 }
