@@ -22,13 +22,15 @@ export async function POST(req: NextRequest) {
   try {
     const { videoUrl, userPrompt, transcription } = await req.json();
 
-    // Ưu tiên sử dụng GEMINI_API_KEY từ biến môi trường để bảo mật
-    const apiKey = process.env.GEMINI_API_KEY;
+    // 1. KHỚP LỆNH THÔNG MINH: Lấy key linh hoạt
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ error: "Thiếu GEMINI_API_KEY trong hệ thống." }, { status: 500 });
+      console.error("Ý LÂM GEMINI ERROR: Thiếu API Key trong Environment Variables.");
+      return NextResponse.json({ error: "Thiếu API Key trong hệ thống. Hãy kiểm tra Vercel Environment Variables." }, { status: 500 });
     }
 
+    // 2. BẮT LỖI TẬN GỐC: Khởi tạo và xử lý AI
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
@@ -47,6 +49,7 @@ Dữ liệu đầu vào:
 Hãy thực thi Khai Phóng và trả về JSON.
 `;
 
+    console.log("Ý LÂM: Đang gửi lệnh tới trí tuệ Tự Minh...");
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     const text = response.text();
@@ -55,7 +58,7 @@ Hãy thực thi Khai Phóng và trả về JSON.
       const jsonResponse = JSON.parse(text);
       return NextResponse.json(jsonResponse);
     } catch (e) {
-      // Trường hợp AI không trả về JSON chuẩn, bọc lại thủ công
+      console.warn("Ý LÂM: Kết quả trả về không phải JSON chuẩn, đang bọc lại...");
       return NextResponse.json({
         summary: "Đang bóc tách tinh hoa...",
         strategy: "Đang lập trình chiến lược...",
@@ -64,10 +67,10 @@ Hãy thực thi Khai Phóng và trả về JSON.
     }
 
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error("Ý LÂM GEMINI ERROR:", error);
     return NextResponse.json({ 
-      error: "Không thể kết nối với trí tuệ Tự Minh",
-      details: error.message 
+      error: error.message || "Lỗi xử lý AI từ trí tuệ Tự Minh",
+      details: error.stack
     }, { status: 500 });
   }
 }

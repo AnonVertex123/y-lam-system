@@ -19,6 +19,7 @@ export default function YLamHeritage() {
   const [videoUrl, setVideoUrl] = useState(""); 
   const [userPrompt, setUserPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [results, setResults] = useState<{summary: string, strategy: string, script: string} | null>(null);
   
   // Logic Xác thực: Trạng thái Đăng nhập
@@ -65,17 +66,28 @@ export default function YLamHeritage() {
   const handleUnleash = async () => {
     if (!userPrompt && !videoUrl) return;
     setLoading(true);
+    setErrorMsg(null);
     try {
+      console.log("Ý LÂM: Đang khởi động mạch dẫn Khai Phóng...");
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoUrl, userPrompt })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Lỗi hệ thống (${response.status})`);
+      }
+
       const data = await response.json();
+      console.log("Ý LÂM: Đã nhận diện tri thức Chiaroscuro:", data);
+      
       setResults(data);
       setIsRevealed(true);
     } catch (error) {
-      console.error("Khai Phóng lỗi:", error);
+      console.error("Ý LÂM: Mạch dẫn bị ngắt quãng:", error);
+      setErrorMsg(error instanceof Error ? error.message : "Không thể kết nối với trí tuệ Tự Minh.");
     } finally {
       setLoading(false);
     }
@@ -142,11 +154,17 @@ export default function YLamHeritage() {
               <button 
                 onClick={handleUnleash}
                 disabled={loading}
-                className={`px-10 py-2.5 ${s.btn} font-bold rounded-full text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all disabled:opacity-50`}
+                className={`px-10 py-2.5 ${s.btn} font-bold rounded-full text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
               > 
-                <Sparkles size={14} className={loading ? "animate-spin" : ""} /> {loading ? "Đang Khai Phóng..." : "Khai Phóng"} 
+                <Sparkles size={14} className={loading ? "animate-spin" : ""} /> 
+                {loading ? "Đang bóc tách Chiaroscuro..." : "Khai Phóng"} 
               </button> 
             </div> 
+            {errorMsg && (
+              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-500 text-[10px] uppercase tracking-widest animate-pulse flex items-center gap-2">
+                <Zap size={12} /> {errorMsg}
+              </div>
+            )}
           </div> 
         </div> 
  
