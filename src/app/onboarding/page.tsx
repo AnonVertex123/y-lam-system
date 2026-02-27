@@ -304,18 +304,21 @@ export default function OnboardingPage() {
       const enc = meta.yl_encrypted_api;
       
       // KHAI PHÓNG: Cưỡng chế chuyển hướng bất kể API Key
-      setInfo("Đăng nhập thành công. Đang tiến vào Ý Lâm...");
-      console.log("Đăng nhập thành công. Tiến vào Ý Lâm...");
-      
-      try {
-        localStorage.setItem("rememberedEmail", email);
-        sessionStorage.setItem("yl.showWelcome", "1");
-      } catch {}
+      if (data.session) {
+        setInfo("Đăng nhập thành công. Đang khởi tạo không gian...");
+        console.log("Đăng nhập thành công. Đang khởi tạo không gian...");
+        
+        try {
+          localStorage.setItem("rememberedEmail", email);
+          sessionStorage.setItem("yl.showWelcome", "1");
+        } catch {}
 
-      // LỆNH QUYỀN NĂNG: Chờ 1 giây để người dùng đọc tin vui rồi đẩy vào Dashboard ngay
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1000);
+        // LỆNH SÁT THỦ: Tự động chuyển hướng sau 1 giây 
+        setTimeout(() => { 
+          // Dùng window.location.href để đảm bảo làm mới toàn bộ session trên trình duyệt 
+          window.location.href = "/dashboard"; 
+        }, 1000); 
+      }
 
       // Xử lý API Key chạy ngầm (không chặn điều hướng)
       if (enc?.ciphertext && enc?.iv && enc?.salt) {
