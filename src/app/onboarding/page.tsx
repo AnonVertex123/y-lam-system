@@ -161,9 +161,8 @@ export default function OnboardingPage() {
           localStorage.setItem("rememberedEmail", email);
           sessionStorage.setItem("yl.showWelcome", "1");
         } catch {}
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 300);
+        
+        router.push("/dashboard");
       } else {
         // Dự phòng nếu sau này bật lại confirm email
         console.log("Ý LÂM: Cần xác nhận Email trước khi Khai Phóng.");
