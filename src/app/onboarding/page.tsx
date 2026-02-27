@@ -98,11 +98,11 @@ export default function OnboardingPage() {
       // ignore
     }
 
-    // KHAI PHÓNG: Kiểm tra session hiện có để vào thẳng Dashboard
+      // KHAI PHÓNG: Kiểm tra session hiện có để vào thẳng Dashboard
     const checkActiveSession = async () => {
       const supabase = getSupabaseBrowser();
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      if (session && window.location.pathname !== "/dashboard") {
         console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Tiến vào Dashboard...");
         router.push("/dashboard");
       }
@@ -218,9 +218,10 @@ export default function OnboardingPage() {
         sessionStorage.setItem("yl.showWelcome", "1");
       } catch {}
       
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1000);
+      // Sử dụng router.push thay vì window.location.href để không reload trang
+      if (window.location.pathname !== "/dashboard") {
+        router.push("/dashboard");
+      }
 
       // Các bước khởi tạo thực thể chạy ngầm (không chặn người dùng)
       const userId = signData.user?.id;
@@ -313,18 +314,21 @@ export default function OnboardingPage() {
           sessionStorage.setItem("yl.showWelcome", "1");
         } catch {}
 
-        // LỆNH SÁT THỦ: Tự động chuyển hướng sau 1 giây 
-        setTimeout(() => { 
-          // Dùng window.location.href để đảm bảo làm mới toàn bộ session trên trình duyệt 
-          window.location.href = "/dashboard"; 
-        }, 1000); 
-      }
+        // Chuyển hướng sau khi đăng nhập thành công
+        // logic isLoggedIn(true) sẽ được xử lý tự động bởi onAuthStateChange trong Dashboard
+        console.log("Đăng nhập thành công, chuyển sang Dashboard...");
+        
+        // Chỉ push router nếu không phải render trực tiếp từ Dashboard
+        if (window.location.pathname !== "/dashboard") {
+          router.push("/dashboard");
+        }
 
-      // Xử lý API Key chạy ngầm (không chặn điều hướng)
-      if (enc?.ciphertext && enc?.iv && enc?.salt) {
-        decryptString(enc.ciphertext, password, enc.iv, enc.salt)
-          .then(api => saveApiKeyEncrypted(api, password))
-          .catch(err => console.warn("Ý LÂM: Không thể giải mã API Key cũ.", err));
+        // Xử lý API Key chạy ngầm (không chặn điều hướng)
+        if (enc?.ciphertext && enc?.iv && enc?.salt) {
+          decryptString(enc.ciphertext, password, enc.iv, enc.salt)
+            .then(api => saveApiKeyEncrypted(api, password))
+            .catch(err => console.warn("Ý LÂM: Không thể giải mã API Key cũ.", err));
+        }
       }
     } catch (err) {
       console.error("Lỗi đăng nhập:", err);

@@ -1,19 +1,49 @@
 "use client"; 
 import {  
   Search, Boxes, Globe, History, ChevronLeft, ChevronRight, Moon, Sun,  
-  Link2, Sparkles, Youtube, FileText, Zap, Layers, FileCode, ClipboardCopy, Share2, Download 
+  Link2, Sparkles, Youtube, FileText, Zap, Layers, FileCode, ClipboardCopy, Share2, Download,
+  LogOut 
 } from 'lucide-react'; 
-import { useState } from 'react'; 
- 
+import { useState, useEffect } from 'react'; 
+import { getSupabaseBrowser } from "@/lib/supabase-browser"; 
+import { useI18n } from "@/components/I18nProvider"; 
+import OnboardingPage from "../onboarding/page"; 
+import { useRouter } from "next/navigation"; // Thêm router
+
 export default function YLamHeritage() { 
-  const [l, setL] = useState(false); // Trái: Khai Phá 
-  const [r, setR] = useState(false); // Phải: Lưu Trữ 
+  const router = useRouter(); // Khởi tạo router
+  const [l, setL] = useState(false); 
+  const [r, setR] = useState(false); 
   const [isDark, setIsDark] = useState(true); 
-  const [isRevealed, setIsRevealed] = useState(false); // Drawer nhanh 
+  const [isRevealed, setIsRevealed] = useState(false); 
   const [videoUrl, setVideoUrl] = useState(""); 
   const [userPrompt, setUserPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<{summary: string, strategy: string, script: string} | null>(null);
+  
+  // Logic Xác thực: Trạng thái Đăng nhập
+  const supabase = getSupabaseBrowser();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); 
+  const { locale, setLocale, t } = useI18n();
+
+  // MẠCH DẪN CẢM BIẾN 
+  useEffect(() => { 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => { 
+      if (event === 'SIGNED_IN' && session) { 
+        setIsLoggedIn(true); // Manh mối: Đèn xanh bật 
+        router.push('/dashboard'); // Manh mối: Đẩy xe vào cổng 
+      } else if (event === 'SIGNED_OUT') {
+        setIsLoggedIn(false);
+      } else if (event === 'INITIAL_SESSION') {
+        setIsLoggedIn(!!session);
+      }
+    }); 
+    return () => subscription.unsubscribe(); 
+  }, [supabase, router]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
  
   const getYouTubeID = (url: string) => { 
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/; 
@@ -52,12 +82,25 @@ export default function YLamHeritage() {
   };
  
   return ( 
-    <div className={`flex h-screen ${s.bg} transition-all duration-1000 font-sans overflow-hidden`}> 
-       
-      {/* 1. CHUYỂN HỆ NHẬT NGUYỆT */} 
-      <button onClick={() => setIsDark(!isDark)} className="fixed top-6 right-20 z-[60] p-2 border rounded-full bg-zinc-900/10 hover:bg-zinc-900/50 transition-all shadow-sm"> 
-        {isDark ? <Moon size={14} className="text-amber-500" /> : <Sun size={14} className="text-orange-400" />} 
-      </button> 
+    <>
+      {isLoggedIn === null ? (
+        <div className={`flex h-screen ${s.bg} items-center justify-center`}>
+          <div className="w-8 h-8 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
+        </div>
+      ) : !isLoggedIn ? (
+        <OnboardingPage />
+      ) : (
+        <div className={`flex h-screen ${s.bg} transition-all duration-1000 font-sans overflow-hidden`}> 
+          
+          {/* 1. CHUYỂN HỆ NHẬT NGUYỆT */} 
+          <div className="fixed top-6 right-20 z-[60] flex items-center gap-3">
+            <button onClick={() => setIsDark(!isDark)} className="p-2 border rounded-full bg-zinc-900/10 hover:bg-zinc-900/50 transition-all shadow-sm"> 
+              {isDark ? <Moon size={14} className="text-amber-500" /> : <Sun size={14} className="text-orange-400" />} 
+            </button> 
+            <button onClick={handleSignOut} className="p-2 border rounded-full bg-zinc-900/10 hover:bg-red-500/20 hover:border-red-500/50 transition-all text-zinc-500 hover:text-red-500">
+              <LogOut size={14} />
+            </button>
+          </div>
  
       {/* 2. CÁNH TRÁI: KHAI PHÁ */} 
       <aside className={`${l?'w-64 border-r':'w-0'} ${s.nav} border-zinc-900 transition-all duration-500 overflow-hidden z-40 relative`}> 
@@ -193,5 +236,7 @@ export default function YLamHeritage() {
         </div> 
       </aside> 
     </div> 
+      )}
+    </>
   ); 
 } 
