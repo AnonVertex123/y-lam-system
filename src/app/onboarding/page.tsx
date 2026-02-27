@@ -183,13 +183,17 @@ export default function OnboardingPage() {
         return;
       }
 
-      // KHAI PHÓNG: Chuyển hướng ngay lập tức nếu có session
+      // KHAI PHÓNG: Cưỡng chế chuyển hướng ngay lập tức nếu có session
+      setInfo("Đăng ký thành công! Đang tiến vào Ý Lâm...");
       console.log("Đăng ký thành công. Tiến vào Ý Lâm...");
       try {
         localStorage.setItem("rememberedEmail", email);
         sessionStorage.setItem("yl.showWelcome", "1");
       } catch {}
-      router.push("/dashboard");
+      
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1000);
 
       // Các bước khởi tạo thực thể chạy ngầm (không chặn người dùng)
       const userId = signData.user?.id;
@@ -272,15 +276,21 @@ export default function OnboardingPage() {
       };
       const enc = meta.yl_encrypted_api;
       
-      // KHAI PHÓNG: Chuyển hướng ngay lập tức
+      // KHAI PHÓNG: Cưỡng chế chuyển hướng bất kể API Key
+      setInfo("Đăng nhập thành công. Đang tiến vào Ý Lâm...");
       console.log("Đăng nhập thành công. Tiến vào Ý Lâm...");
+      
       try {
         localStorage.setItem("rememberedEmail", email);
         sessionStorage.setItem("yl.showWelcome", "1");
       } catch {}
-      router.push("/dashboard");
 
-      // Xử lý API Key chạy ngầm
+      // LỆNH QUYỀN NĂNG: Chờ 1 giây để người dùng đọc tin vui rồi đẩy vào Dashboard ngay
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1000);
+
+      // Xử lý API Key chạy ngầm (không chặn điều hướng)
       if (enc?.ciphertext && enc?.iv && enc?.salt) {
         decryptString(enc.ciphertext, password, enc.iv, enc.salt)
           .then(api => saveApiKeyEncrypted(api, password))

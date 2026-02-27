@@ -21,10 +21,11 @@
      const { error } = await supabase.auth.updateUser({ password }); 
  
      if (error) { 
-       alert(error.message); 
+       alert("Lỗi: " + error.message); 
      } else { 
-       alert("Cập nhật mật mã thành công! Đang tiến vào Dashboard..."); 
-       router.push("/dashboard"); 
+       alert("Mật mã đã được định hình!"); 
+       // Đẩy thẳng vào dashboard, bỏ qua mọi bước trung gian 
+       window.location.href = "/dashboard"; 
      } 
      setLoading(false); 
    }; 
