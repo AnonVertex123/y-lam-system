@@ -128,32 +128,40 @@ export default function OnboardingPage() {
 
       const enc = await encryptString(apiKey.trim(), password);
 
-      // KHAI PHÓNG: Chuyển hướng thông minh (Tự động đăng nhập nếu có session ngay)
-      if (signData?.session) {
-        console.log("Ý LÂM: Đã có session ngay sau khi đăng ký, tiến hành khởi tạo thực thể...");
-        const userId = signData.user?.id;
-        if (!userId) {
-          setError(t("onboarding.missingUserId"));
-          return;
-        }
+      if (!signData?.session) {
+        try {
+          localStorage.setItem("rememberedEmail", email);
+          localStorage.setItem("yl.pendingEncryptedApi", JSON.stringify(enc));
+          localStorage.setItem("yl.pendingEmail", email);
+        } catch {}
+        setInfo(t("onboarding.accountCreatedConfirmEmail"));
+        setMode("login");
+        return;
+      }
 
-        const { error: profErr } = await supabase
-          .from("profiles")
-          .upsert({ id: userId, encrypted_api_key: enc }, { onConflict: "id" });
-        if (profErr) {
-          console.log("Supabase profiles upsert error:", profErr);
-          setError(t("onboarding.profilesWriteFailed", { msg: profErr.message }));
-          return;
-        }
+      const userId = signData.user?.id;
+      if (!userId) {
+        setError(t("onboarding.missingUserId"));
+        return;
+      }
 
-        const { error: updErr } = await supabase.auth.updateUser({
-          data: { yl_encrypted_api: enc },
-        });
-        if (updErr) {
-          console.log("Supabase updateUser (metadata) error:", updErr);
-          setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
-          return;
-        }
+      const { error: profErr } = await supabase
+        .from("profiles")
+        .upsert({ id: userId, encrypted_api_key: enc }, { onConflict: "id" });
+      if (profErr) {
+        console.log("Supabase profiles upsert error:", profErr);
+        setError(t("onboarding.profilesWriteFailed", { msg: profErr.message }));
+        return;
+      }
+
+      const { error: updErr } = await supabase.auth.updateUser({
+        data: { yl_encrypted_api: enc },
+      });
+      if (updErr) {
+        console.log("Supabase updateUser (metadata) error:", updErr);
+        setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
+        return;
+      }
 
         setInfo(t("onboarding.entityInitialized"));
         await saveApiKeyEncrypted(apiKey.trim(), password);
@@ -281,7 +289,9 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
-      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+      const redirectTo = typeof window !== "undefined" 
+        ? `${window.location.origin}/update-password` 
+        : "https://y-lam.vercel.app/update-password";
       const { error: authErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (authErr) {
         setError(authErr.message || t("onboarding.resetLinkError"));
