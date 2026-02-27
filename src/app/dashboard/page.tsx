@@ -21,7 +21,7 @@ export default function DashboardPage() {
   
   // States hiển thị đa tầng
   const [transcription, setTranscription] = useState("");
-  const [summary, setSummary] = useState<{ core_essence: string; practical_value: string } | null>(null);
+  const [summary, setSummary] = useState<any>(null);
   const [gates, setGates] = useState<any>(null);
   
   const [inlineError, setInlineError] = useState<string | null>(null);
@@ -124,8 +124,7 @@ export default function DashboardPage() {
       const cachedData = CacheService.get(input);
       if (cachedData) {
         console.log("[LOG] Ý Lâm: Đã tìm thấy tri thức trong Ký ức.");
-        setSummary(cachedData.summary || "");
-        setGates(cachedData.scripts || "");
+        setSummary(cachedData.summary || null);
         setGates(cachedData.scripts || null);
         setIsProcessing(false);
         return;
