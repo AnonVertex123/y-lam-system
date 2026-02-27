@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
+import clsx from "clsx";
 import { saveApiKeyEncrypted } from "@/lib/secure-store";
 import { KeyRound, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { GlowInput } from "@/components/GlowInput";
