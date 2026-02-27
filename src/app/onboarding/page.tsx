@@ -165,7 +165,7 @@ export default function OnboardingPage() {
         router.push("/dashboard");
       } else {
         // Dự phòng nếu sau này bật lại confirm email
-        console.log("Ý LÂM: Cần xác nhận Email trước khi Khai Phóng.");
+        console.log("Đang tiến vào Ý Lâm...");
         try {
           localStorage.setItem("rememberedEmail", email);
           localStorage.setItem("yl.pendingEncryptedApi", JSON.stringify(enc));
