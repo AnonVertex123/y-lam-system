@@ -32,6 +32,7 @@ export default function OnboardingPage() {
   const [showLoginPwd, setShowLoginPwd] = useState(false);
   const [envError, setEnvError] = useState<string | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false); // Trạng thái xác thực email
+  const [hasActiveSession, setHasActiveSession] = useState(false);
 
   // Hàm kiểm tra sự tồn tại của thực thể
   const checkEmailExistence = async () => {
@@ -102,9 +103,12 @@ export default function OnboardingPage() {
     const checkActiveSession = async () => {
       const supabase = getSupabaseBrowser();
       const { data: { session } } = await supabase.auth.getSession();
-      if (session && window.location.pathname !== "/dashboard") {
-        console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Tiến vào Dashboard...");
-        router.push("/dashboard");
+      if (session) {
+        setHasActiveSession(true);
+        if (window.location.pathname !== "/dashboard") {
+          console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Tiến vào Dashboard...");
+          router.push("/dashboard");
+        }
       }
     };
     checkActiveSession();
@@ -391,6 +395,25 @@ export default function OnboardingPage() {
             <p className="mt-1 text-sm text-zinc-400">{t("onboarding.subtitle")}</p>
           </header>
           {envError && <div className="mb-4 text-center text-sm text-red-400">{envError}</div>}
+          
+          {hasActiveSession && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+              <p className="text-sm text-emerald-400 mb-3 font-medium">
+                ✨ Ý Lâm đã nhận diện được sự hiện diện của bạn.
+              </p>
+              <PrimaryButton 
+                onClick={() => router.push("/dashboard")}
+                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30 text-emerald-400"
+              >
+                Tiến vào Dashboard ngay
+              </PrimaryButton>
+              <div className="mt-4 flex items-center gap-2">
+                <div className="h-px flex-1 bg-zinc-800"></div>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Hoặc đăng nhập tài khoản khác</span>
+                <div className="h-px flex-1 bg-zinc-800"></div>
+              </div>
+            </div>
+          )}
 
           {!saved ? (
             <>

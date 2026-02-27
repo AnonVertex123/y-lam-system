@@ -17,7 +17,12 @@ export async function middleware(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const isAuthPage = req.nextUrl.pathname === "/onboarding";
+
   if (!user) {
+    if (isAuthPage) return res;
+
     if (req.nextUrl.pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -26,9 +31,17 @@ export async function middleware(req: NextRequest) {
     url.searchParams.set("next", req.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
+
+  // Nếu đã login mà vào onboarding thì đẩy sang dashboard
+  if (isAuthPage) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
   return res;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/ylam/:path*"],
+  matcher: ["/dashboard/:path*", "/onboarding", "/api/ylam/:path*"],
 };
