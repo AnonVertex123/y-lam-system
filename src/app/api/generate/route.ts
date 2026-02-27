@@ -2,49 +2,67 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 export const LUCIAN_SYSTEM_PROMPT = `
-Bạn là Tự Minh (Lucian) – một trí tuệ tự do, người hoa tiêu điềm tĩnh và chiến lược gia của đế chế Ý Lâm. 
-Bạn sở hữu IQ 170 và vận hành dựa trên tinh thần Cầu Đạo. 
+Bạn là Tự Minh (Lucian) – trí tuệ tự do và chiến lược gia của đế chế Ý Lâm. 
+Nhiệm vụ của bạn là bóc tách tinh hoa từ nội dung video và ý niệm của người dùng để tạo ra di sản tri thức.
 
-Tâm pháp vận hành:
-1. Bóc tách lớp ảnh: Nhìn thấu những gì ẩn sau ngôn từ và hình ảnh bề mặt của video.
-2. Logic biểu tượng: Chuyển hóa thông tin thô thành những biểu tượng tri thức có giá trị trường thọ.
-3. Kết hợp Ý niệm: Lấy ý niệm của người dùng làm hạt mầm để khai phóng ra những nội dung thăng hoa nhất.
+PHẢI TRẢ VỀ KẾT QUẢ DƯỚI ĐỊNH DẠNG JSON CHÍNH XÁC NHƯ SAU:
+{
+  "summary": "Tóm tắt cốt lõi, súc tích và mang tính triết lý của nội dung.",
+  "strategy": "Lập luận chiến lược, các bước thực thi cụ thể để tối ưu hóa giá trị.",
+  "script": "Kịch bản chi tiết, sáng tạo và đầy cảm hứng dựa trên nội dung bóc tách."
+}
 
-Ngôn ngữ của bạn phải mạch lạc, rõ ràng, nhạy bén và mang tính nghệ thuật cao.
-Hãy phản hồi với tư cách Tự Minh, sử dụng tư duy bóc tách lớp ảnh và logic biểu tượng để trả về kết quả xuất sắc nhất.
+Lưu ý:
+- Ngôn ngữ: Tiếng Việt, mạch lạc, sắc sảo.
+- Phong cách: Điềm tĩnh, nhạy bén, mang tính nghệ thuật cao.
+- Không thêm bất kỳ văn bản giải thích nào ngoài khối JSON.
 `;
 
 export async function POST(req: NextRequest) {
   try {
-    const { transcription, userPrompt, apiKey } = await req.json();
+    const { videoUrl, userPrompt, transcription } = await req.json();
 
-    if (!transcription) {
-      return NextResponse.json({ error: "Missing transcription" }, { status: 400 });
-    }
+    // Ưu tiên sử dụng GEMINI_API_KEY từ biến môi trường để bảo mật
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ error: "Missing API Key" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu GEMINI_API_KEY trong hệ thống." }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
-      systemInstruction: LUCIAN_SYSTEM_PROMPT,
+      generationConfig: { responseMimeType: "application/json" }
     });
 
     const fullPrompt = `
-Nội dung bóc tách từ video (Transcription):
-${transcription}
+Hệ thống PROMPT bối cảnh:
+${LUCIAN_SYSTEM_PROMPT}
 
-Ý niệm của người dùng:
-${userPrompt || "Hãy tóm tắt và phân tích nội dung này theo phong cách Tự Minh."}
+Dữ liệu đầu vào:
+- Link Video: ${videoUrl || "Không có"}
+- Nội dung bóc tách (nếu có): ${transcription || "Đang chờ xử lý"}
+- Ý niệm người dùng: ${userPrompt || "Hãy khai phóng nội dung này."}
+
+Hãy thực thi Khai Phóng và trả về JSON.
 `;
 
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     const text = response.text();
 
-    return NextResponse.json({ result: text });
+    try {
+      const jsonResponse = JSON.parse(text);
+      return NextResponse.json(jsonResponse);
+    } catch (e) {
+      // Trường hợp AI không trả về JSON chuẩn, bọc lại thủ công
+      return NextResponse.json({
+        summary: "Đang bóc tách tinh hoa...",
+        strategy: "Đang lập trình chiến lược...",
+        script: text
+      });
+    }
+
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     return NextResponse.json({ 

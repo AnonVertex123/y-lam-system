@@ -11,6 +11,9 @@ export default function YLamHeritage() {
   const [isDark, setIsDark] = useState(true); 
   const [isRevealed, setIsRevealed] = useState(false); // Drawer nhanh 
   const [videoUrl, setVideoUrl] = useState(""); 
+  const [userPrompt, setUserPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<{summary: string, strategy: string, script: string} | null>(null);
  
   const getYouTubeID = (url: string) => { 
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/; 
@@ -28,6 +31,25 @@ export default function YLamHeritage() {
     title: 'text-zinc-800', input: 'text-black', btn: 'bg-black text-white',  
     btnSub: 'bg-zinc-100 text-zinc-600 border-zinc-200', nav: 'bg-[#f3f3ee]' 
   }; 
+
+  const handleUnleash = async () => {
+    if (!userPrompt && !videoUrl) return;
+    setLoading(true);
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl, userPrompt })
+      });
+      const data = await response.json();
+      setResults(data);
+      setIsRevealed(true);
+    } catch (error) {
+      console.error("Khai Phóng lỗi:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
  
   return ( 
     <div className={`flex h-screen ${s.bg} transition-all duration-1000 font-sans overflow-hidden`}> 
@@ -51,7 +73,7 @@ export default function YLamHeritage() {
         </div> 
       </aside> 
  
-      <button onClick={() => setL(!l)} className="fixed left-4 top-1/2 -translate-y-1/2 bg-zinc-900/50 p-2 rounded-full z-50 animate-pulse text-zinc-600 hover:text-white transition-all"> 
+      <button onClick={() => setL(!l)} className="fixed left-4 top-1/2 -translate-y-1/2 bg-zinc-900/50 p-2 rounded-full z-50 animate-pulse text-zinc-400 hover:text-white transition-all"> 
         {l ? <ChevronLeft size={16}/> : <ChevronRight size={16}/>} 
       </button> 
  
@@ -62,14 +84,25 @@ export default function YLamHeritage() {
         <div className={`w-full max-w-3xl space-y-4 mb-8 z-20 transition-all duration-500 ${isRevealed ? 'opacity-30 blur-sm scale-95' : ''}`}> 
           <h1 className={`text-2xl font-light tracking-[0.8em] ${s.title} uppercase text-center transition-all duration-700`}>Ý LÂM</h1> 
           <div className={`${s.card} border rounded-[32px] p-6 shadow-2xl transition-all duration-1000`}> 
-            <textarea className={`w-full bg-transparent outline-none ${s.input} h-16 resize-none text-lg transition-all duration-700`} placeholder="Kịch bản triệu đô..." /> 
+            <textarea 
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+              className={`w-full bg-transparent outline-none ${s.input} h-16 resize-none text-lg transition-all duration-700`} 
+              placeholder="Ý tưởng kịch bản..." 
+            /> 
             <div className={`flex items-center gap-3 mt-3 p-3 bg-zinc-900/10 border border-zinc-900/50 rounded-full focus-within:border-zinc-700 transition-all duration-700`}> 
                 <Link2 size={16} className="text-zinc-700"/> 
                 <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className={`flex-1 bg-transparent outline-none text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-600'} transition-all duration-700`} placeholder="Dán link YouTube tại đây..." /> 
             </div> 
             <div className="flex justify-end items-center gap-3 pt-4 mt-3 border-t border-zinc-900/10"> 
               <button onClick={() => setIsRevealed(true)} className={`px-6 py-2.5 ${s.btnSub} border font-bold rounded-full text-[9px] uppercase tracking-widest flex items-center gap-2 transition-all hover:text-white`}><FileText size={14} /> Content</button> 
-              <button onClick={() => setIsRevealed(true)} className={`px-10 py-2.5 ${s.btn} font-bold rounded-full text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all`}><Sparkles size={14} /> Khai Phóng</button> 
+              <button 
+                onClick={handleUnleash}
+                disabled={loading}
+                className={`px-10 py-2.5 ${s.btn} font-bold rounded-full text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all disabled:opacity-50`}
+              > 
+                <Sparkles size={14} className={loading ? "animate-spin" : ""} /> {loading ? "Đang Khai Phóng..." : "Khai Phóng"} 
+              </button> 
             </div> 
           </div> 
         </div> 
@@ -98,7 +131,7 @@ export default function YLamHeritage() {
                   <Zap size={14} className="text-amber-500"/> Tóm tắt phân tích 
                </h3> 
                <p className={`text-sm leading-relaxed italic ${isDark ? 'text-zinc-400' : 'text-zinc-600'} transition-all`}>
-                 Chào Hùng Đại, đây là tinh hoa bóc tách từ video...
+                 {results?.summary || "Chào Hùng Đại, tinh hoa video sẽ hiện ra tại đây sau khi Khai Phóng..."}
                </p> 
             </section>
 
@@ -108,7 +141,9 @@ export default function YLamHeritage() {
                   <Layers size={14} className="text-blue-500"/> Lập luận chiến lược 
                </h3> 
                <div className="p-6 bg-zinc-900/20 border border-zinc-800/50 rounded-3xl transition-all"> 
-                  <div className="w-full h-24 bg-zinc-800/20 rounded-2xl animate-pulse"></div>
+                  <p className={`text-sm leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    {results?.strategy || "Chiến lược thực thi đang chờ lệnh..."}
+                  </p>
                </div> 
             </section> 
           </div> 
@@ -124,7 +159,9 @@ export default function YLamHeritage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 flex-1 pb-10">
               <div className="p-8 bg-zinc-900/40 border border-zinc-800 rounded-[32px] min-h-[300px] shadow-inner transition-all">
                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">Kịch bản chi tiết</h3>
-                <p className="text-zinc-300 text-sm leading-relaxed italic">Nội dung đã sẵn sàng để Hùng Đại bóc tách...</p>
+                <div className={`text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap ${!results?.script && 'italic opacity-50'}`}>
+                  {results?.script || "Kịch bản triệu đô đang được ấp ủ..."}
+                </div>
               </div>
               <div className="p-8 bg-zinc-900/40 border border-zinc-800 rounded-[32px] shadow-inner transition-all">
                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">Hành động nhanh</h3>
