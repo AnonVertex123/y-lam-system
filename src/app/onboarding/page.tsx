@@ -128,7 +128,45 @@ export default function OnboardingPage() {
 
       const enc = await encryptString(apiKey.trim(), password);
 
-      if (!signData?.session) {
+      // KHAI PHÓNG: Chuyển hướng thông minh (Tự động đăng nhập nếu có session ngay)
+      if (signData?.session) {
+        console.log("Ý LÂM: Đã có session ngay sau khi đăng ký, tiến hành khởi tạo thực thể...");
+        const userId = signData.user?.id;
+        if (!userId) {
+          setError(t("onboarding.missingUserId"));
+          return;
+        }
+
+        const { error: profErr } = await supabase
+          .from("profiles")
+          .upsert({ id: userId, encrypted_api_key: enc }, { onConflict: "id" });
+        if (profErr) {
+          console.log("Supabase profiles upsert error:", profErr);
+          setError(t("onboarding.profilesWriteFailed", { msg: profErr.message }));
+          return;
+        }
+
+        const { error: updErr } = await supabase.auth.updateUser({
+          data: { yl_encrypted_api: enc },
+        });
+        if (updErr) {
+          console.log("Supabase updateUser (metadata) error:", updErr);
+          setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
+          return;
+        }
+
+        setInfo(t("onboarding.entityInitialized"));
+        await saveApiKeyEncrypted(apiKey.trim(), password);
+        try {
+          localStorage.setItem("rememberedEmail", email);
+          sessionStorage.setItem("yl.showWelcome", "1");
+        } catch {}
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 300);
+      } else {
+        // Dự phòng nếu sau này bật lại confirm email
+        console.log("Ý LÂM: Cần xác nhận Email trước khi Khai Phóng.");
         try {
           localStorage.setItem("rememberedEmail", email);
           localStorage.setItem("yl.pendingEncryptedApi", JSON.stringify(enc));
@@ -136,42 +174,7 @@ export default function OnboardingPage() {
         } catch {}
         setInfo(t("onboarding.accountCreatedConfirmEmail"));
         setMode("login");
-        return;
       }
-
-      const userId = signData.user?.id;
-      if (!userId) {
-        setError(t("onboarding.missingUserId"));
-        return;
-      }
-
-      const { error: profErr } = await supabase
-        .from("profiles")
-        .upsert({ id: userId, encrypted_api_key: enc }, { onConflict: "id" });
-      if (profErr) {
-        console.log("Supabase profiles upsert error:", profErr);
-        setError(t("onboarding.profilesWriteFailed", { msg: profErr.message }));
-        return;
-      }
-
-      const { error: updErr } = await supabase.auth.updateUser({
-        data: { yl_encrypted_api: enc },
-      });
-      if (updErr) {
-        console.log("Supabase updateUser (metadata) error:", updErr);
-        setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
-        return;
-      }
-
-      setInfo(t("onboarding.entityInitialized"));
-      await saveApiKeyEncrypted(apiKey.trim(), password);
-      try {
-        localStorage.setItem("rememberedEmail", email);
-        sessionStorage.setItem("yl.showWelcome", "1");
-      } catch {}
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 300);
     } catch (e) {
       console.log("Register flow error:", e);
       setError(t("onboarding.cannotSaveKey"));
