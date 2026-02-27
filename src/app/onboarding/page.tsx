@@ -149,9 +149,27 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
+
+      // 1. Kiểm tra nhanh ở bảng Profiles trước để báo lỗi sớm cho người dùng 
+      const { data: profileCheck } = await supabase 
+        .from('profiles') 
+        .select('email') 
+        .eq('email', email) 
+        .maybeSingle(); 
+  
+      if (profileCheck) { 
+        alert("❌ Thực thể này đã tồn tại trong Ý Lâm! Vui lòng Đăng nhập thay vì Đăng ký."); 
+        setLoading(false); 
+        setMode("login");
+        return; 
+      }
+
       const { data: signData, error: signErr } = await supabase.auth.signUp({
         email,
         password,
+        options: { 
+          emailRedirectTo: `${window.location.origin}/onboarding/update-password`, 
+        } 
       });
       if (signErr) {
         console.log("Supabase signUp error:", signErr);
@@ -170,6 +188,14 @@ export default function OnboardingPage() {
         return;
       }
 
+      // ĐIỂM MẤU CHỐT: Xử lý identities rỗng (User đã tồn tại trong Auth nhưng có thể chưa có Profile)
+      if (signData?.user?.identities?.length === 0) {
+        alert("⚠️ Email này đã được sử dụng. Hãy kiểm tra hộp thư hoặc Đăng nhập.");
+        setLoading(false);
+        setMode("login");
+        return;
+      }
+
       const enc = await encryptString(apiKey.trim(), password);
 
       if (!signData?.session) {
@@ -178,6 +204,7 @@ export default function OnboardingPage() {
           localStorage.setItem("yl.pendingEncryptedApi", JSON.stringify(enc));
           localStorage.setItem("yl.pendingEmail", email);
         } catch {}
+        alert("✅ Khởi tạo thực thể thành công! Hãy kiểm tra Email để xác nhận.");
         setInfo(t("onboarding.accountCreatedConfirmEmail"));
         setMode("login");
         return;
