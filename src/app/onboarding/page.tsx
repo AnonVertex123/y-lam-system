@@ -30,6 +30,38 @@ export default function OnboardingPage() {
   const [showRegPwd, setShowRegPwd] = useState(false);
   const [showLoginPwd, setShowLoginPwd] = useState(false);
   const [envError, setEnvError] = useState<string | null>(null);
+  const [isEmailVerified, setIsEmailVerified] = useState(false); // Trạng thái xác thực email
+
+  // Hàm kiểm tra sự tồn tại của thực thể
+  const checkEmailExistence = async () => {
+    if (!email.includes("@") || mode !== "login") return;
+    
+    setLoading(true);
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Lỗi truy vấn:", error);
+        return;
+      }
+
+      if (!data) {
+        alert("⚠️ Thực thể này chưa tồn tại trong Ý Lâm. Vui lòng đăng ký trước!");
+        setIsEmailVerified(false);
+      } else {
+        setIsEmailVerified(true);
+      }
+    } catch (err) {
+      console.error("Lỗi hệ thống khi check email:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const registerSchema = useMemo(() => {
     return z
@@ -105,6 +137,22 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
+
+      // 1. Bước "Vệ binh": Kiểm tra xem email đã tồn tại trong hồ sơ chưa
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser) {
+        alert("⚠️ Email này đã tồn tại trong hệ thống Ý Lâm. Vui lòng sử dụng chức năng Đăng nhập.");
+        setLoading(false);
+        setMode("login");
+        return;
+      }
+
+      // 2. Nếu chưa tồn tại, mới tiến hành đăng ký tài khoản mới
       const { data: signData, error: signErr } = await supabase.auth.signUp({
         email,
         password,
@@ -162,6 +210,7 @@ export default function OnboardingPage() {
           sessionStorage.setItem("yl.showWelcome", "1");
         } catch {}
         
+        alert("Khởi tạo thực thể thành công! Đang tiến vào Ý Lâm...");
         router.push("/dashboard");
       } else {
         // Dự phòng nếu sau này bật lại confirm email
@@ -349,6 +398,7 @@ export default function OnboardingPage() {
                             setMode("login");
                             setError(null);
                             setInfo(null);
+                            setIsEmailVerified(false); // Yêu cầu check email khi quay lại login
                           }}
                         >
                           {t("onboarding.login")}
@@ -448,41 +498,61 @@ export default function OnboardingPage() {
                     type="email"
                     placeholder={t("onboarding.emailPlaceholder")}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setIsEmailVerified(false); // Reset khi thay đổi email
+                    }}
+                    onBlur={checkEmailExistence}
                     autoComplete="email"
                   />
-                  <GlowInput
-                    label={t("onboarding.password")}
-                    icon={<ShieldCheck size={18} />}
-                    type={showLoginPwd ? "text" : "password"}
-                    placeholder={t("onboarding.passwordMin8")}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    trailing={
-                      <button
-                        type="button"
-                        aria-label={showLoginPwd ? t("common.hidePassword") : t("common.showPassword")}
-                        onClick={() => setShowLoginPwd((v) => !v)}
-                        className="text-zinc-500 hover:text-zinc-200 transition-colors"
-                      >
-                        {showLoginPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    }
-                  />
+                  <div className={clsx(
+                    "transition-all duration-500",
+                    isEmailVerified ? "opacity-100 scale-100" : "opacity-30 scale-95 pointer-events-none h-0 overflow-hidden"
+                  )}>
+                    <GlowInput
+                      label={t("onboarding.password")}
+                      icon={<ShieldCheck size={18} />}
+                      type={showLoginPwd ? "text" : "password"}
+                      placeholder={t("onboarding.passwordMin8")}
+                      value={password}
+                      disabled={!isEmailVerified}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      trailing={
+                        <button
+                          type="button"
+                          aria-label={showLoginPwd ? t("common.hidePassword") : t("common.showPassword")}
+                          onClick={() => setShowLoginPwd((v) => !v)}
+                          className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                        >
+                          {showLoginPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      }
+                    />
+                  </div>
+                  {!isEmailVerified && (
+                    <p className="text-[10px] text-zinc-500 mt-2 italic uppercase tracking-widest animate-pulse">
+                      * Nhập email hợp lệ để mở khóa mật khẩu
+                    </p>
+                  )}
                   <button type="button" className="block text-xs text-zinc-400 underline hover:text-zinc-300" onClick={() => { setMode("forgot"); setError(null); setInfo(null); }}>
                     {t("onboarding.forgotPassword")}
                   </button>
                   {error && <div className="text-sm text-red-400">{error}</div>}
                   {info && <div className="text-sm text-emerald-400">{info}</div>}
-                  <PrimaryButton disabled={loading} type="submit">
+                  <PrimaryButton disabled={loading || !isEmailVerified} type="submit">
                     {loading ? t("common.loading") : t("onboarding.login")}
                   </PrimaryButton>
                   <div className="text-xs text-zinc-400">
                     {t("onboarding.noAccount")}{" "}
-                    <button type="button" className="underline hover:text-zinc-300" onClick={() => { setMode("register"); setError(null); setInfo(null); }}>
+                    <button type="button" className="underline hover:text-zinc-300" onClick={() => { 
+                      setMode("register"); 
+                      setError(null); 
+                      setInfo(null);
+                      setIsEmailVerified(true); // Luôn cho phép nhập ở mode register
+                    }}>
                       {t("onboarding.registerNow")}
                     </button>
                   </div>
