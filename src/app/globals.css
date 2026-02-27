@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050505;
+  --foreground: #eaeaea;
 }
 
 @theme inline {
@@ -12,15 +14,95 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.yl-glow {
+  position: relative;
+}
+.yl-glow::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px;
+  background: radial-gradient(120px 60px at 50% -10%, rgba(250, 240, 220, 0.25), transparent 60%),
+    radial-gradient(100px 80px at 80% -20%, rgba(220, 210, 255, 0.15), transparent 65%);
+  filter: blur(14px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.yl-card {
+  @apply rounded-2xl bg-zinc-900/40 backdrop-blur-md border border-zinc-700/40;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.02) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 16px 48px rgba(0, 0, 0, 0.35);
+}
+
+/* Hiệu ứng nhịp thở neon */
+@keyframes neon-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 5px #39ff14,
+      0 0 15px #39ff14,
+      0 0 25px rgba(57, 255, 20, 0.4);
+  }
+  50% {
+    text-shadow:
+      0 0 2px #39ff14,
+      0 0 8px #39ff14,
+      0 0 12px rgba(57, 255, 20, 0.2);
+  }
+}
+
+/* Hiệu ứng lắng nghe cho nút Micro */
+@keyframes listen-breathe { 
+  0%, 100% { 
+    transform: scale(1); 
+    filter: drop-shadow(0 0 2px rgba(0, 170, 255, 0.5)); 
+  } 
+  50% { 
+    transform: scale(1.15); /* Phóng to nhẹ nhàng */ 
+    filter: drop-shadow(0 0 12px rgba(0, 170, 255, 1)); /* Tỏa sáng xanh dương */ 
+  } 
+} 
+
+.mic-listening-blue { 
+  color: #00aaff !important; /* Màu xanh dương sáng/Neon Blue */ 
+  animation: listen-breathe 2s infinite ease-in-out; 
+} 
+
+.text-neon-blink {
+  animation: neon-pulse 1.5s infinite alternate;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes glow-white {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.2), inset 0 0 5px rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+.input-glow-warning {
+  animation: glow-white 1.5s infinite ease-in-out !important;
 }
