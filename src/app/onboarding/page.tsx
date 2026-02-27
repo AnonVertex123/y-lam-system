@@ -104,7 +104,8 @@ export default function OnboardingPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
         console.log(`Ý LÂM: Trạng thái ${event} xác nhận. Đang tiến vào Dashboard...`);
-        router.replace("/dashboard");
+        router.refresh();
+        window.location.assign("/dashboard");
       }
     });
 
@@ -112,7 +113,8 @@ export default function OnboardingPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Đang tiến vào Dashboard...");
-        router.replace("/dashboard");
+        router.refresh();
+        window.location.assign("/dashboard");
       }
     });
 
@@ -159,6 +161,9 @@ export default function OnboardingPage() {
     try {
       const supabase = getSupabaseBrowser();
 
+      // KHAI PHÓNG: Xác định base URL cho Redirect
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "");
+
       // 1. Kiểm tra nhanh ở bảng Profiles trước để báo lỗi sớm cho người dùng 
       const { data: profileCheck } = await supabase 
         .from('profiles') 
@@ -177,7 +182,7 @@ export default function OnboardingPage() {
         email,
         password,
         options: { 
-          emailRedirectTo: `${window.location.origin}/onboarding/update-password`, 
+          emailRedirectTo: `${siteUrl}/onboarding/update-password`, 
         } 
       });
       if (signErr) {
@@ -221,13 +226,16 @@ export default function OnboardingPage() {
 
       // KHAI PHÓNG: Cưỡng chế chuyển hướng ngay lập tức nếu có session
       setInfo("Đăng ký thành công! Đang tiến vào Ý Lâm...");
-      console.log("Đăng ký thành công. Tiến vào Ý Lâm...");
+      console.log("Đăng ký thành công. Chìa khóa đã nhận:", signData.session);
       try {
         localStorage.setItem("rememberedEmail", email);
         sessionStorage.setItem("yl.showWelcome", "1");
       } catch {}
       
-      router.replace("/dashboard");
+      router.refresh();
+      setTimeout(() => {
+        window.location.assign("/dashboard");
+      }, 100);
 
       // Các bước khởi tạo thực thể chạy ngầm (không chặn người dùng)
       const userId = signData.user?.id;
@@ -313,7 +321,7 @@ export default function OnboardingPage() {
       // KHAI PHÓNG: Cưỡng chế chuyển hướng bất kể API Key
       if (data.session) {
         setInfo("Đăng nhập thành công. Đang khởi tạo không gian...");
-        console.log("Đăng nhập thành công. Đang khởi tạo không gian...");
+        console.log("Đăng nhập thành công. Chìa khóa đã nhận:", data.session);
         
         try {
           localStorage.setItem("rememberedEmail", email);
@@ -324,7 +332,10 @@ export default function OnboardingPage() {
         // logic isLoggedIn(true) sẽ được xử lý tự động bởi onAuthStateChange trong Dashboard
         console.log("Đăng nhập thành công, chuyển sang Dashboard...");
         
-        router.replace("/dashboard");
+        router.refresh();
+        setTimeout(() => {
+          window.location.assign("/dashboard");
+        }, 100);
 
         // Xử lý API Key chạy ngầm (không chặn điều hướng)
         if (enc?.ciphertext && enc?.iv && enc?.salt) {
@@ -354,9 +365,8 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
-      const redirectTo = typeof window !== "undefined" 
-        ? `${window.location.origin}/onboarding/update-password` 
-        : "https://y-lam.vercel.app/onboarding/update-password";
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "https://y-lam.vercel.app");
+      const redirectTo = `${siteUrl}/onboarding/update-password`;
       const { error: authErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (authErr) {
         setError(authErr.message || t("onboarding.resetLinkError"));
