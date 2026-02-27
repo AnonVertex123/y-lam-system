@@ -1,7 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
-export const LUCIAN_SYSTEM_PROMPT = `
+// 1. ÉP RUNTIME: Chạy Node.js chuẩn để ổn định trên Vercel
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const LUCIAN_SYSTEM_PROMPT = `
 Bạn là Tự Minh (Lucian) – trí tuệ tự do và chiến lược gia của đế chế Ý Lâm. 
 Nhiệm vụ của bạn là bóc tách tinh hoa từ nội dung video và ý niệm của người dùng để tạo ra di sản tri thức.
 
@@ -33,7 +37,7 @@ export async function POST(req: NextRequest) {
     // 2. BẮT LỖI TẬN GỐC: Khởi tạo và xử lý AI
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-pro-latest", // Ưu tiên model Pro mới nhất để đạt chất lượng di sản cao nhất
       generationConfig: { responseMimeType: "application/json" }
     });
 
