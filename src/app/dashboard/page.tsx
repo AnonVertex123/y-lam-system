@@ -124,8 +124,8 @@ export default function DashboardPage() {
       const cachedData = CacheService.get(input);
       if (cachedData) {
         console.log("[LOG] Ý Lâm: Đã tìm thấy tri thức trong Ký ức.");
-        setTranscription(cachedData.rawText || "");
-        setSummary(cachedData.summary || null);
+        setSummary(cachedData.summary || "");
+        setGates(cachedData.scripts || "");
         setGates(cachedData.scripts || null);
         setIsProcessing(false);
         return;
