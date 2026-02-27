@@ -41,27 +41,28 @@ export async function middleware(req: NextRequest) {
   });
 
   const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
   const isAuthPage = req.nextUrl.pathname === "/onboarding";
   
   // LOG DEBUG TRÊN VERCEL
-  console.log(`Ý LÂM MIDDLEWARE: [Path: ${req.nextUrl.pathname}] [User: ${user ? user.email : 'None'}]`);
+  console.log(`Ý LÂM MIDDLEWARE: [Path: ${req.nextUrl.pathname}] [User: ${user ? user.email : 'None'}] [Session: ${session ? 'Active' : 'None'}]`);
 
-  if (!user) {
+  if (!session) {
     if (isAuthPage) return res;
 
     if (req.nextUrl.pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Nếu không có user mà cố vào dashboard, redirect sang onboarding
+    // Nếu không có session mà cố vào dashboard, redirect sang onboarding
     const url = req.nextUrl.clone();
     url.pathname = "/onboarding";
     url.searchParams.set("next", req.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
 
-  // Nếu đã login mà vào onboarding thì đẩy sang dashboard ngay lập tức
+  // Nếu đã login (có session) mà vào onboarding thì đẩy sang dashboard ngay lập tức
   if (isAuthPage) {
     console.log("Ý LÂM MIDDLEWARE: Đã nhận diện thực thể, chuyển hướng về Dashboard...");
     const url = req.nextUrl.clone();
