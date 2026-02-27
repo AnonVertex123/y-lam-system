@@ -97,7 +97,18 @@ export default function OnboardingPage() {
     } catch {
       // ignore
     }
-  }, []);
+
+    // KHAI PHÓNG: Kiểm tra session hiện có để vào thẳng Dashboard
+    const checkActiveSession = async () => {
+      const supabase = getSupabaseBrowser();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Tiến vào Dashboard...");
+        router.push("/dashboard");
+      }
+    };
+    checkActiveSession();
+  }, [router]);
 
   useEffect(() => {
     try {
@@ -172,39 +183,29 @@ export default function OnboardingPage() {
         return;
       }
 
+      // KHAI PHÓNG: Chuyển hướng ngay lập tức nếu có session
+      console.log("Đăng ký thành công. Tiến vào Ý Lâm...");
+      try {
+        localStorage.setItem("rememberedEmail", email);
+        sessionStorage.setItem("yl.showWelcome", "1");
+      } catch {}
+      router.push("/dashboard");
+
+      // Các bước khởi tạo thực thể chạy ngầm (không chặn người dùng)
       const userId = signData.user?.id;
-      if (!userId) {
-        setError(t("onboarding.missingUserId"));
-        return;
+      if (userId) {
+        supabase.from("profiles").upsert({ id: userId, encrypted_api_key: enc }, { onConflict: "id" })
+          .then(({ error: profErr }) => {
+            if (profErr) console.warn("Supabase profiles upsert error:", profErr);
+          });
+
+        supabase.auth.updateUser({ data: { yl_encrypted_api: enc } })
+          .then(({ error: updErr }) => {
+            if (updErr) console.warn("Supabase updateUser (metadata) error:", updErr);
+          });
+
+        saveApiKeyEncrypted(apiKey.trim(), password).catch(err => console.warn("saveApiKeyEncrypted error:", err));
       }
-
-        const { error: profErr } = await supabase
-          .from("profiles")
-          .upsert({ id: userId, encrypted_api_key: enc }, { onConflict: "id" });
-        if (profErr) {
-          console.log("Supabase profiles upsert error:", profErr);
-          setError(t("onboarding.profilesWriteFailed", { msg: profErr.message }));
-          return;
-        }
-
-      const { error: updErr } = await supabase.auth.updateUser({
-        data: { yl_encrypted_api: enc },
-      });
-      if (updErr) {
-        console.log("Supabase updateUser (metadata) error:", updErr);
-        setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
-        return;
-      }
-
-        setInfo(t("onboarding.entityInitialized"));
-        await saveApiKeyEncrypted(apiKey.trim(), password);
-        try {
-          localStorage.setItem("rememberedEmail", email);
-          sessionStorage.setItem("yl.showWelcome", "1");
-        } catch {}
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 300);
     } catch (e) {
       console.log("Register flow error:", e);
       setError(t("onboarding.cannotSaveKey"));
@@ -270,28 +271,23 @@ export default function OnboardingPage() {
         yl_encrypted_api?: { iv: string; salt: string; ciphertext: string };
       };
       const enc = meta.yl_encrypted_api;
+      
+      // KHAI PHÓNG: Chuyển hướng ngay lập tức
+      console.log("Đăng nhập thành công. Tiến vào Ý Lâm...");
+      try {
+        localStorage.setItem("rememberedEmail", email);
+        sessionStorage.setItem("yl.showWelcome", "1");
+      } catch {}
+      router.push("/dashboard");
+
+      // Xử lý API Key chạy ngầm
       if (enc?.ciphertext && enc?.iv && enc?.salt) {
-        try {
-          const api = await decryptString(enc.ciphertext, password, enc.iv, enc.salt);
-          await saveApiKeyEncrypted(api, password);
-          setInfo(t("onboarding.loginSuccessKeyDecrypted"));
-          try {
-            localStorage.setItem("rememberedEmail", email);
-            sessionStorage.setItem("yl.showWelcome", "1");
-          } catch {}
-          router.push("/dashboard");
-        } catch {
-          setError(t("onboarding.cannotDecryptKey"));
-        }
-      } else {
-        setInfo(t("onboarding.loginSuccessNoKey"));
-        try {
-          localStorage.setItem("rememberedEmail", email);
-          sessionStorage.setItem("yl.showWelcome", "1");
-        } catch {}
-        router.push("/dashboard");
+        decryptString(enc.ciphertext, password, enc.iv, enc.salt)
+          .then(api => saveApiKeyEncrypted(api, password))
+          .catch(err => console.warn("Ý LÂM: Không thể giải mã API Key cũ.", err));
       }
-    } catch {
+    } catch (err) {
+      console.error("Lỗi đăng nhập:", err);
       setError(t("onboarding.cannotLogin"));
     } finally {
       setLoading(false);
@@ -312,8 +308,8 @@ export default function OnboardingPage() {
     try {
       const supabase = getSupabaseBrowser();
       const redirectTo = typeof window !== "undefined" 
-        ? `${window.location.origin}/update-password` 
-        : "https://y-lam.vercel.app/update-password";
+        ? `${window.location.origin}/onboarding/update-password` 
+        : "https://y-lam.vercel.app/onboarding/update-password";
       const { error: authErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (authErr) {
         setError(authErr.message || t("onboarding.resetLinkError"));
