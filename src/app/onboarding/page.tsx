@@ -98,18 +98,25 @@ export default function OnboardingPage() {
       // ignore
     }
 
-      // KHAI PHÓNG: Kiểm tra session hiện có để vào thẳng Dashboard
-    const checkActiveSession = async () => {
-      const supabase = getSupabaseBrowser();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        if (window.location.pathname !== "/dashboard") {
-          console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Đang tiến vào Dashboard...");
-          router.replace("/dashboard");
-        }
+    const supabase = getSupabaseBrowser();
+    
+    // KHAI PHÓNG: Lắng nghe trạng thái Auth để chuyển hướng tức thì
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        console.log(`Ý LÂM: Trạng thái ${event} xác nhận. Đang tiến vào Dashboard...`);
+        router.replace("/dashboard");
       }
-    };
-    checkActiveSession();
+    });
+
+    // Kiểm tra session hiện có ngay lập tức
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        console.log("Ý LÂM: Đã nhận diện phiên làm việc cũ. Đang tiến vào Dashboard...");
+        router.replace("/dashboard");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [router]);
 
   useEffect(() => {
@@ -220,10 +227,7 @@ export default function OnboardingPage() {
         sessionStorage.setItem("yl.showWelcome", "1");
       } catch {}
       
-      // Sử dụng router.push thay vì window.location.href để không reload trang
-      if (window.location.pathname !== "/dashboard") {
-        router.push("/dashboard");
-      }
+      router.replace("/dashboard");
 
       // Các bước khởi tạo thực thể chạy ngầm (không chặn người dùng)
       const userId = signData.user?.id;
@@ -320,10 +324,7 @@ export default function OnboardingPage() {
         // logic isLoggedIn(true) sẽ được xử lý tự động bởi onAuthStateChange trong Dashboard
         console.log("Đăng nhập thành công, chuyển sang Dashboard...");
         
-        // Chỉ push router nếu không phải render trực tiếp từ Dashboard
-        if (window.location.pathname !== "/dashboard") {
-          router.push("/dashboard");
-        }
+        router.replace("/dashboard");
 
         // Xử lý API Key chạy ngầm (không chặn điều hướng)
         if (enc?.ciphertext && enc?.iv && enc?.salt) {
