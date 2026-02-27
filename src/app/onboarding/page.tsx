@@ -138,22 +138,6 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
-
-      // 1. Bước "Vệ binh": Kiểm tra xem email đã tồn tại trong hồ sơ chưa
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (existingUser) {
-        alert("⚠️ Email này đã tồn tại trong hệ thống Ý Lâm. Vui lòng sử dụng chức năng Đăng nhập.");
-        setLoading(false);
-        setMode("login");
-        return;
-      }
-
-      // 2. Nếu chưa tồn tại, mới tiến hành đăng ký tài khoản mới
       const { data: signData, error: signErr } = await supabase.auth.signUp({
         email,
         password,
@@ -177,14 +161,22 @@ export default function OnboardingPage() {
 
       const enc = await encryptString(apiKey.trim(), password);
 
-      // KHAI PHÓNG: Chuyển hướng thông minh (Tự động đăng nhập nếu có session ngay)
-      if (signData?.session) {
-        console.log("Ý LÂM: Đã có session ngay sau khi đăng ký, tiến hành khởi tạo thực thể...");
-        const userId = signData.user?.id;
-        if (!userId) {
-          setError(t("onboarding.missingUserId"));
-          return;
-        }
+      if (!signData?.session) {
+        try {
+          localStorage.setItem("rememberedEmail", email);
+          localStorage.setItem("yl.pendingEncryptedApi", JSON.stringify(enc));
+          localStorage.setItem("yl.pendingEmail", email);
+        } catch {}
+        setInfo(t("onboarding.accountCreatedConfirmEmail"));
+        setMode("login");
+        return;
+      }
+
+      const userId = signData.user?.id;
+      if (!userId) {
+        setError(t("onboarding.missingUserId"));
+        return;
+      }
 
         const { error: profErr } = await supabase
           .from("profiles")
@@ -195,14 +187,14 @@ export default function OnboardingPage() {
           return;
         }
 
-        const { error: updErr } = await supabase.auth.updateUser({
-          data: { yl_encrypted_api: enc },
-        });
-        if (updErr) {
-          console.log("Supabase updateUser (metadata) error:", updErr);
-          setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
-          return;
-        }
+      const { error: updErr } = await supabase.auth.updateUser({
+        data: { yl_encrypted_api: enc },
+      });
+      if (updErr) {
+        console.log("Supabase updateUser (metadata) error:", updErr);
+        setError(t("onboarding.metadataUpdateFailed", { msg: updErr.message }));
+        return;
+      }
 
         setInfo(t("onboarding.entityInitialized"));
         await saveApiKeyEncrypted(apiKey.trim(), password);
@@ -210,20 +202,9 @@ export default function OnboardingPage() {
           localStorage.setItem("rememberedEmail", email);
           sessionStorage.setItem("yl.showWelcome", "1");
         } catch {}
-        
-        alert("Khởi tạo thực thể thành công! Đang tiến vào Ý Lâm...");
-        router.push("/dashboard");
-      } else {
-        // Dự phòng nếu sau này bật lại confirm email
-        console.log("Đang chờ xác thực...");
-        try {
-          localStorage.setItem("rememberedEmail", email);
-          localStorage.setItem("yl.pendingEncryptedApi", JSON.stringify(enc));
-          localStorage.setItem("yl.pendingEmail", email);
-        } catch {}
-        setInfo(t("onboarding.accountCreatedConfirmEmail"));
-        setMode("login");
-      }
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 300);
     } catch (e) {
       console.log("Register flow error:", e);
       setError(t("onboarding.cannotSaveKey"));
@@ -501,14 +482,14 @@ export default function OnboardingPage() {
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
-                      setIsEmailVerified(false); // Reset khi thay đổi email
+                      setIsEmailVerified(false);
                     }}
                     onBlur={checkEmailExistence}
                     autoComplete="email"
                   />
                   <div className={clsx(
                     "transition-all duration-500",
-                    isEmailVerified ? "opacity-100 scale-100" : "opacity-30 scale-95 pointer-events-none h-0 overflow-hidden"
+                    isEmailVerified ? "opacity-100 scale-100" : "opacity-30 scale-95 pointer-events-none"
                   )}>
                     <GlowInput
                       label={t("onboarding.password")}
@@ -532,12 +513,12 @@ export default function OnboardingPage() {
                         </button>
                       }
                     />
+                    {!isEmailVerified && (
+                      <p className="text-[10px] text-zinc-500 mt-2 italic uppercase tracking-widest animate-pulse">
+                        * Nhập email hợp lệ để mở khóa mật khẩu
+                      </p>
+                    )}
                   </div>
-                  {!isEmailVerified && (
-                    <p className="text-[10px] text-zinc-500 mt-2 italic uppercase tracking-widest animate-pulse">
-                      * Nhập email hợp lệ để mở khóa mật khẩu
-                    </p>
-                  )}
                   <button type="button" className="block text-xs text-zinc-400 underline hover:text-zinc-300" onClick={() => { setMode("forgot"); setError(null); setInfo(null); }}>
                     {t("onboarding.forgotPassword")}
                   </button>
@@ -552,7 +533,7 @@ export default function OnboardingPage() {
                       setMode("register"); 
                       setError(null); 
                       setInfo(null);
-                      setIsEmailVerified(true); // Luôn cho phép nhập ở mode register
+                      setIsEmailVerified(true);
                     }}>
                       {t("onboarding.registerNow")}
                     </button>
